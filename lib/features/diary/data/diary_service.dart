@@ -118,12 +118,10 @@ class DiaryService {
   ) async {
     final nextMetrics = <NutritionMetricType, double>{};
     for (final metric in NutritionMetricType.values) {
-      final raw = metrics[metric] ?? 0;
+      if (!metrics.containsKey(metric)) continue;
+      final raw = metrics[metric]!;
       final value = _roundMetricValue(raw);
       if (!value.isFinite) continue;
-      if (metric != NutritionMetricType.calories && value == 0) {
-        continue;
-      }
       nextMetrics[metric] = value;
     }
     nextMetrics.putIfAbsent(NutritionMetricType.calories, () => 0);
@@ -373,11 +371,10 @@ class DiaryService {
     return summary;
   }
 
-  Future<Set<NutritionMetricType>> getConfiguredMetricsForDate(
+  Future<Set<NutritionMetricType>> getAvailableMetricsForDate(
     DateTime date,
   ) async {
     final bounds = _dayBounds(date);
-
     final rows =
         await (_db.select(_db.diaryEntries)..where(
               (t) =>
@@ -396,19 +393,17 @@ class DiaryService {
     final metricsByEntryId = await _loadMetricsByEntryId(
       foodRows.map((row) => row.id).toList(growable: false),
     );
-
-    final configured = <NutritionMetricType>{};
+    final available = <NutritionMetricType>{};
     for (final metric in NutritionMetricType.values) {
-      final isConfiguredForEveryFood = foodRows.every((row) {
+      if (foodRows.any((row) {
         final metrics =
             metricsByEntryId[row.id] ?? const <NutritionMetricType, double>{};
         return metrics.containsKey(metric);
-      });
-      if (isConfiguredForEveryFood) {
-        configured.add(metric);
+      })) {
+        available.add(metric);
       }
     }
-    return configured;
+    return available;
   }
 
   Future<List<DiaryEntry>> searchEntrySuggestions(

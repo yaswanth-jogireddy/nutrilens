@@ -95,10 +95,10 @@ class AddEntryFormManager {
   void _applyMetrics(DiaryEntry entry) {
     for (final metric in NutritionMetricType.values) {
       final value = entry.metricValue(metric);
-      metricControllers[metric]!.text =
-          (metric == NutritionMetricType.calories || value > 0)
-          ? _formatMetric(value)
-          : '';
+      final hasValue =
+          metric == NutritionMetricType.calories ||
+          entry.metrics.containsKey(metric);
+      metricControllers[metric]!.text = hasValue ? _formatMetric(value) : '';
     }
   }
 

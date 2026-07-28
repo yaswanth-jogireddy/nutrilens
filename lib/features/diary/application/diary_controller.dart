@@ -614,27 +614,26 @@ class DiaryController extends _$DiaryController {
   }
 
   Map<String, dynamic> _normalizeFoodResult(Map<String, dynamic> result) {
+    final normalizedMetrics = <String, double>{};
+    for (final metric in NutritionMetricType.values) {
+      final value = _numericMetricValue(result, metric);
+      if (value == null || !value.isFinite || value < 0) continue;
+      normalizedMetrics[metric.key] = value;
+    }
+    normalizedMetrics.putIfAbsent(
+      NutritionMetricType.calories.key,
+      () => 0,
+    );
+
     return {
       'food_name': _stringValue(result['food_name']) ?? _fallbackName(EntryType.food),
       'estimated_quantity': _stringValue(result['estimated_quantity']) ?? '',
       'reasoning':
           _stringValue(result['reasoning']) ??
           'Estimated from the supplied food log evidence.',
-      'metrics': {
-        for (final metric in NutritionMetricType.values)
-          metric.key: _safeMetricValue(result, metric),
-      },
+      'metrics': normalizedMetrics,
       'icon': _validateIcon(result['icon'], EntryType.food),
     };
-  }
-
-  double _safeMetricValue(
-    Map<String, dynamic> result,
-    NutritionMetricType type,
-  ) {
-    final value = _metricValue(result, type);
-    if (!value.isFinite || value < 0) return 0;
-    return value;
   }
 
   String? _stringValue(dynamic value) {
@@ -688,15 +687,32 @@ class DiaryController extends _$DiaryController {
   ) {
     final metrics = <NutritionMetricType, double>{};
     for (final type in NutritionMetricType.values) {
-      final value = _metricValue(result, type);
-      if (value > 0 || type == NutritionMetricType.calories) {
-        metrics[type] = value;
-      }
+      final value = _numericMetricValue(result, type);
+      if (value == null || !value.isFinite || value < 0) continue;
+      metrics[type] = value;
     }
+    metrics.putIfAbsent(NutritionMetricType.calories, () => 0);
     return metrics;
   }
 
   double _metricValue(Map<String, dynamic> result, NutritionMetricType type) {
+    return _toDouble(_rawMetricValue(result, type));
+  }
+
+  double? _numericMetricValue(
+    Map<String, dynamic> result,
+    NutritionMetricType type,
+  ) {
+    final raw = _rawMetricValue(result, type);
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim());
+    return null;
+  }
+
+  dynamic _rawMetricValue(
+    Map<String, dynamic> result,
+    NutritionMetricType type,
+  ) {
     final metrics = result['metrics'];
     final source = metrics is Map<String, dynamic>
         ? metrics
@@ -742,7 +758,7 @@ class DiaryController extends _$DiaryController {
             source['vitamin_a_mcg_rae'] ??
             source['vitaminA'],
     };
-    return _toDouble(value);
+    return value;
   }
 
   String _validateIcon(dynamic icon, EntryType type) {

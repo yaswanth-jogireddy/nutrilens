@@ -203,7 +203,7 @@ class AddEntryController extends _$AddEntryController {
     final parsedMetrics = <NutritionMetricType, double>{};
     for (final entry in metricValues.entries) {
       final parsed = _parseMetric(entry.value);
-      if (parsed == null || parsed <= 0) continue;
+      if (parsed == null || parsed < 0) continue;
       parsedMetrics[entry.key] = parsed;
     }
 

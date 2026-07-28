@@ -985,10 +985,10 @@ class DataPortabilityService {
 
   _XlsxCell _xlsxMetricCell(
     Map<NutritionMetricType, double> totals,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
     NutritionMetricType metric,
   ) {
-    if (metric.blankWhenMissing && !configuredMetrics.contains(metric)) {
+    if (metric.blankWhenMissing && !availableMetrics.contains(metric)) {
       return _XlsxCell.text(_notConfiguredLabel);
     }
     return _XlsxCell.number(_roundMetric(totals[metric] ?? 0));
@@ -996,12 +996,12 @@ class DataPortabilityService {
 
   List<_XlsxCell> _dailyAnalyticsCells(
     Map<NutritionMetricType, double> totals,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
   ) {
     final calories = totals[NutritionMetricType.calories] ?? 0;
     final pufa = totals[NutritionMetricType.polyunsaturatedFat] ?? 0;
     final pufaPercent = calories > 0 &&
-            configuredMetrics.contains(NutritionMetricType.polyunsaturatedFat)
+            availableMetrics.contains(NutritionMetricType.polyunsaturatedFat)
         ? _roundMetric((pufa * 9 / calories) * 100)
         : null;
 
@@ -1010,7 +1010,7 @@ class DataPortabilityService {
       _dailyRatioCell(
         _dailyRatio(
           totals,
-          configuredMetrics,
+          availableMetrics,
           NutritionMetricType.calcium,
           NutritionMetricType.phosphorus,
         ),
@@ -1018,7 +1018,7 @@ class DataPortabilityService {
       _dailyRatioCell(
         _dailyRatio(
           totals,
-          configuredMetrics,
+          availableMetrics,
           NutritionMetricType.zinc,
           NutritionMetricType.copper,
         ),
@@ -1026,7 +1026,7 @@ class DataPortabilityService {
       _dailyRatioCell(
         _dailyRatio(
           totals,
-          configuredMetrics,
+          availableMetrics,
           NutritionMetricType.potassium,
           NutritionMetricType.sodium,
         ),
@@ -1044,12 +1044,12 @@ class DataPortabilityService {
 
   double? _dailyRatio(
     Map<NutritionMetricType, double> totals,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
     NutritionMetricType numerator,
     NutritionMetricType denominator,
   ) {
-    if (!configuredMetrics.contains(numerator) ||
-        !configuredMetrics.contains(denominator)) {
+    if (!availableMetrics.contains(numerator) ||
+        !availableMetrics.contains(denominator)) {
       return null;
     }
     final denominatorValue = totals[denominator] ?? 0;
@@ -1118,7 +1118,7 @@ class DataPortabilityService {
       final totals = <NutritionMetricType, double>{
         for (final metric in NutritionMetricType.values) metric: 0,
       };
-      final configuredMetrics = _configuredMetricsForDailyExport(
+      final availableMetrics = _availableMetricsForDailyExport(
         rows,
         metricsByEntryId,
       );
@@ -1137,9 +1137,9 @@ class DataPortabilityService {
         _XlsxCell.text(date),
         _XlsxCell.number(rows.length),
         ...NutritionMetricType.values.map(
-          (metric) => _xlsxMetricCell(totals, configuredMetrics, metric),
+          (metric) => _xlsxMetricCell(totals, availableMetrics, metric),
         ),
-        ..._dailyAnalyticsCells(totals, configuredMetrics),
+        ..._dailyAnalyticsCells(totals, availableMetrics),
       ]);
     }
 
@@ -1186,7 +1186,7 @@ class DataPortabilityService {
     );
   }
 
-  Set<NutritionMetricType> _configuredMetricsForDailyExport(
+  Set<NutritionMetricType> _availableMetricsForDailyExport(
     List<DiaryEntryRow> rows,
     Map<String, Map<NutritionMetricType, double>> metricsByEntryId,
   ) {
@@ -1195,18 +1195,19 @@ class DataPortabilityService {
         .toList(growable: false);
     if (foodRows.isEmpty) return const <NutritionMetricType>{};
 
-    final configured = <NutritionMetricType>{};
+    final available = <NutritionMetricType>{};
     for (final metric in NutritionMetricType.values) {
-      final isConfiguredForEveryFood = foodRows.every((row) {
+      // A missing value on one entry must not hide valid values from the day.
+      final isAvailableForAnyFood = foodRows.any((row) {
         final metrics =
             metricsByEntryId[row.id] ?? const <NutritionMetricType, double>{};
         return metrics.containsKey(metric);
       });
-      if (isConfiguredForEveryFood) {
-        configured.add(metric);
+      if (isAvailableForAnyFood) {
+        available.add(metric);
       }
     }
-    return configured;
+    return available;
   }
 
   String _xlsxContentTypesXml() {
@@ -1424,10 +1425,9 @@ class DataPortabilityService {
     final metrics = <NutritionMetricType, double>{};
 
     for (final metric in NutritionMetricType.values) {
-      final value = _parseDouble(_cell(row, headerIndex, metric.key));
-      if (value != 0 || metric == NutritionMetricType.calories) {
-        metrics[metric] = _roundMetric(value);
-      }
+      final rawValue = _cell(row, headerIndex, metric.key).trim();
+      final value = _parseNullableDouble(rawValue);
+      if (value != null) metrics[metric] = _roundMetric(value);
     }
     metrics.putIfAbsent(NutritionMetricType.calories, () => 0);
 
@@ -1472,8 +1472,7 @@ class DataPortabilityService {
     return metrics.entries
         .where((entry) {
           final value = _roundMetric(entry.value);
-          return value.isFinite &&
-              (entry.key == NutritionMetricType.calories || value != 0);
+          return value.isFinite;
         })
         .map(
           (entry) => EntryMetricsCompanion.insert(
@@ -2063,12 +2062,6 @@ class DataPortabilityService {
       default:
         return false;
     }
-  }
-
-  double _parseDouble(String value) {
-    final parsed = double.tryParse(value.trim());
-    if (parsed == null || !parsed.isFinite) return 0;
-    return parsed;
   }
 
   double? _parseNullableDouble(String value) {

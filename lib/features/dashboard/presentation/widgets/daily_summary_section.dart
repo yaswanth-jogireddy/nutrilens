@@ -26,7 +26,7 @@ class DailySummarySection extends ConsumerWidget {
           ref,
           summaryData.profile,
           summaryData.summary,
-          summaryData.configuredMetrics,
+          summaryData.availableMetrics,
           summaryData.isDailyCalculationExportIneligible,
         );
       },
@@ -40,7 +40,7 @@ class DailySummarySection extends ConsumerWidget {
     WidgetRef ref,
     UserProfile profile,
     Map<String, double> summary,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
     bool isDailyCalculationExportIneligible,
   ) {
     final consumed = summary[NutritionMetricType.calories.key] ?? 0;
@@ -185,8 +185,8 @@ class DailySummarySection extends ConsumerWidget {
               children: _buildMacroRings(profile, summary),
             ),
             ..._buildMicroRow(profile, summary),
-            ..._buildRatioRow(summary, configuredMetrics),
-            ..._buildAnalyticsSection(summary, configuredMetrics),
+            ..._buildRatioRow(summary, availableMetrics),
+            ..._buildAnalyticsSection(summary, availableMetrics),
           ],
         ),
       ),
@@ -291,23 +291,23 @@ class DailySummarySection extends ConsumerWidget {
 
   List<Widget> _buildRatioRow(
     Map<String, double> summary,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
   ) {
     final calciumPhosphorus = _metricRatio(
       summary,
-      configuredMetrics,
+      availableMetrics,
       NutritionMetricType.calcium,
       NutritionMetricType.phosphorus,
     );
     final zincCopper = _metricRatio(
       summary,
-      configuredMetrics,
+      availableMetrics,
       NutritionMetricType.zinc,
       NutritionMetricType.copper,
     );
     final potassiumSodium = _metricRatio(
       summary,
-      configuredMetrics,
+      availableMetrics,
       NutritionMetricType.potassium,
       NutritionMetricType.sodium,
     );
@@ -347,9 +347,9 @@ class DailySummarySection extends ConsumerWidget {
 
   List<Widget> _buildAnalyticsSection(
     Map<String, double> summary,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
   ) {
-    final items = _analyticsItems(summary, configuredMetrics);
+    final items = _analyticsItems(summary, availableMetrics);
     final statusText = items.isEmpty ? 'Not configured' : null;
 
     return [
@@ -401,14 +401,12 @@ class DailySummarySection extends ConsumerWidget {
 
   List<_AnalyticsItem> _analyticsItems(
     Map<String, double> summary,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
   ) {
     final calories = summary[NutritionMetricType.calories.key] ?? 0;
     final pufa = summary[NutritionMetricType.polyunsaturatedFat.key] ?? 0;
-    final hasPufaConfigured = configuredMetrics.contains(
-      NutritionMetricType.polyunsaturatedFat,
-    );
-    final pufaPercent = calories > 0 && pufa > 0 && hasPufaConfigured
+    final pufaPercent = calories > 0 &&
+            availableMetrics.contains(NutritionMetricType.polyunsaturatedFat)
         ? (pufa * 9 / calories) * 100
         : null;
 
@@ -424,17 +422,17 @@ class DailySummarySection extends ConsumerWidget {
 
   double? _metricRatio(
     Map<String, double> summary,
-    Set<NutritionMetricType> configuredMetrics,
+    Set<NutritionMetricType> availableMetrics,
     NutritionMetricType numerator,
     NutritionMetricType denominator,
   ) {
-    if (!configuredMetrics.contains(numerator) ||
-        !configuredMetrics.contains(denominator)) {
+    if (!availableMetrics.contains(numerator) ||
+        !availableMetrics.contains(denominator)) {
       return null;
     }
     final numeratorValue = summary[numerator.key] ?? 0;
     final denominatorValue = summary[denominator.key] ?? 0;
-    if (numeratorValue <= 0 || denominatorValue <= 0) return null;
+    if (numeratorValue < 0 || denominatorValue <= 0) return null;
     return numeratorValue / denominatorValue;
   }
 

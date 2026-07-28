@@ -10,13 +10,13 @@ class DailySummaryData {
   const DailySummaryData({
     required this.profile,
     required this.summary,
-    required this.configuredMetrics,
+    required this.availableMetrics,
     required this.isDailyCalculationExportIneligible,
   });
 
   final UserProfile profile;
   final Map<String, double> summary;
-  final Set<NutritionMetricType> configuredMetrics;
+  final Set<NutritionMetricType> availableMetrics;
   final bool isDailyCalculationExportIneligible;
 }
 
@@ -38,9 +38,7 @@ Future<DailySummaryData?> dailySummaryData(Ref ref, DateTime date) async {
   final diaryService = ref.watch(diaryServiceProvider);
   final profileFuture = ref.watch(userProfileProvider.future);
   final summaryFuture = ref.watch(dailySummaryProvider(date).future);
-  final configuredMetricsFuture = diaryService.getConfiguredMetricsForDate(
-    date,
-  );
+  final availableMetricsFuture = diaryService.getAvailableMetricsForDate(date);
   final calculationExportIneligibleFuture = ref
       .watch(settingsServiceProvider)
       .isDailyCalculationExportIneligible(date);
@@ -49,15 +47,14 @@ Future<DailySummaryData?> dailySummaryData(Ref ref, DateTime date) async {
   if (profile == null) return null;
 
   final summary = await summaryFuture;
-  final configuredMetrics = await configuredMetricsFuture;
+  final availableMetrics = await availableMetricsFuture;
   final isDailyCalculationExportIneligible =
       await calculationExportIneligibleFuture;
   return DailySummaryData(
     profile: profile,
     summary: summary,
-    configuredMetrics: configuredMetrics,
-    isDailyCalculationExportIneligible:
-        isDailyCalculationExportIneligible,
+    availableMetrics: availableMetrics,
+    isDailyCalculationExportIneligible: isDailyCalculationExportIneligible,
   );
 }
 
