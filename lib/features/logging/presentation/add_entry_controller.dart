@@ -162,7 +162,7 @@ class AddEntryController extends _$AddEntryController {
       final targetFile = File(
         p.join(imageDirectory.path, '${_uuid.v4()}$extension'),
       );
-      return sourceFile.copy(targetFile.path);
+      return await sourceFile.copy(targetFile.path);
     } catch (_) {
       return sourceFile;
     }

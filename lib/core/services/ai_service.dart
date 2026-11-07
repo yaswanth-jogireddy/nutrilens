@@ -480,7 +480,7 @@ Calculate calories based on the user profile provided and standard MET values.
     }
 
     try {
-      return switch (provider) {
+      return await switch (provider) {
         AIProvider.openRouter => _openRouterChatCompletion(
           client: client,
           messages: messages,

@@ -35,7 +35,7 @@ class EntriesList extends ConsumerWidget {
       return [
         DateFormat('h:mm a').format(entry.timestamp),
         if (arm.isNotEmpty) arm,
-        if (note != null) note,
+        ?note,
       ].join(' - ');
     }
 
