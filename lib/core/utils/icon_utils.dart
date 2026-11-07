@@ -100,6 +100,7 @@ class IconUtils {
   static const Map<String, IconData> otherIcons = {
     'warning': Icons.warning_amber_rounded,
     'thermostat': Icons.thermostat,
+    'monitor_heart': Icons.monitor_heart,
   };
 
   static Map<String, IconData> get iconMap => {

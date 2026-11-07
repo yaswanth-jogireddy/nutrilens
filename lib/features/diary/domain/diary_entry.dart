@@ -1,4 +1,5 @@
 import 'package:nutrinutri/core/domain/nutrition_metric.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure.dart';
 
 class DiaryEntry {
   DiaryEntry({
@@ -18,6 +19,9 @@ class DiaryEntry {
     this.temperatureValue,
     this.temperatureUnit,
     this.temperatureSite,
+    this.bpSystolic,
+    this.bpDiastolic,
+    this.bpArm,
   }) : imagePaths = List.unmodifiable(_normalizeImagePaths(
          imagePath,
          imagePaths,
@@ -41,6 +45,9 @@ class DiaryEntry {
   final double? temperatureValue;
   final String? temperatureUnit;
   final String? temperatureSite;
+  final int? bpSystolic;
+  final int? bpDiastolic;
+  final String? bpArm;
 
   double metricValue(NutritionMetricType type) {
     return metrics[type] ?? 0;
@@ -52,6 +59,34 @@ class DiaryEntry {
   double get fats => metricValue(NutritionMetricType.fats);
 
   bool get isTemperature => type == EntryType.temperature;
+  bool get isBloodPressure => type == EntryType.bloodPressure;
+
+  /// The blood pressure reading, or null when this is not a complete BP entry.
+  BpReading? get bpReading {
+    final systolic = bpSystolic;
+    final diastolic = bpDiastolic;
+    if (type != EntryType.bloodPressure ||
+        systolic == null ||
+        diastolic == null) {
+      return null;
+    }
+    final note = description?.trim();
+    return BpReading(
+      id: id,
+      timestamp: timestamp,
+      systolic: systolic,
+      diastolic: diastolic,
+      arm: bpArm,
+      note: note == null || note.isEmpty ? null : note,
+    );
+  }
+
+  String get bpDisplay {
+    final systolic = bpSystolic;
+    final diastolic = bpDiastolic;
+    if (systolic == null || diastolic == null) return 'No reading';
+    return '$systolic/$diastolic mmHg';
+  }
 
   DiaryEntry copyWithAiReviewMark(bool marked) {
     return DiaryEntry(
@@ -71,6 +106,9 @@ class DiaryEntry {
       temperatureValue: temperatureValue,
       temperatureUnit: temperatureUnit,
       temperatureSite: temperatureSite,
+      bpSystolic: bpSystolic,
+      bpDiastolic: bpDiastolic,
+      bpArm: bpArm,
     );
   }
 
@@ -106,7 +144,8 @@ class DiaryEntry {
   }
 }
 
-enum EntryType { food, exercise, temperature }
+// Stored by index in the database: only ever append new values.
+enum EntryType { food, exercise, temperature, bloodPressure }
 
 enum FoodEntryStatus { synced, processing, failed, cancelled }
 

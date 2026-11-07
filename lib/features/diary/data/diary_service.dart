@@ -49,6 +49,9 @@ class DiaryService {
       temperatureValue: Value(entry.temperatureValue),
       temperatureUnit: Value(entry.temperatureUnit),
       temperatureSite: Value(entry.temperatureSite),
+      bpSystolic: Value(entry.bpSystolic),
+      bpDiastolic: Value(entry.bpDiastolic),
+      bpArm: Value(entry.bpArm),
       updatedAt: Value(now),
       updatedBy: Value(deviceId),
       deletedAt: const Value(null),
@@ -217,6 +220,47 @@ class DiaryService {
           ),
         )
         .toList(growable: false);
+  }
+
+  /// Blood pressure entries with a timestamp in [from, toExclusive), oldest
+  /// first.
+  Future<List<DiaryEntry>> getBloodPressureEntries({
+    required DateTime from,
+    required DateTime toExclusive,
+  }) async {
+    final rows =
+        await (_db.select(_db.diaryEntries)
+              ..where(
+                (t) =>
+                    t.deletedAt.isNull() &
+                    t.type.equals(EntryType.bloodPressure.index) &
+                    t.timestamp.isBetweenValues(
+                      from.millisecondsSinceEpoch,
+                      toExclusive.millisecondsSinceEpoch - 1,
+                    ),
+              )
+              ..orderBy([(t) => OrderingTerm.asc(t.timestamp)]))
+            .get();
+
+    return rows
+        .map((row) => _toDomain(row, const <NutritionMetricType, double>{}))
+        .toList(growable: false);
+  }
+
+  /// Arm used for the most recent blood pressure reading, if any.
+  Future<String?> latestBloodPressureArm() async {
+    final row =
+        await (_db.select(_db.diaryEntries)
+              ..where(
+                (t) =>
+                    t.deletedAt.isNull() &
+                    t.type.equals(EntryType.bloodPressure.index) &
+                    t.bpArm.isNotNull(),
+              )
+              ..orderBy([(t) => OrderingTerm.desc(t.timestamp)])
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.bpArm;
   }
 
   Future<void> addEntry(DiaryEntry entry) async {
@@ -516,6 +560,9 @@ LIMIT 200
       temperatureValue: row.temperatureValue,
       temperatureUnit: row.temperatureUnit,
       temperatureSite: row.temperatureSite,
+      bpSystolic: row.bpSystolic,
+      bpDiastolic: row.bpDiastolic,
+      bpArm: row.bpArm,
     );
   }
 

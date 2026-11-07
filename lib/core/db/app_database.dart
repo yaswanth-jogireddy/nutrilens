@@ -31,6 +31,9 @@ class DiaryEntries extends Table with AuditColumns {
   RealColumn get temperatureValue => real().nullable()();
   TextColumn get temperatureUnit => text().nullable()();
   TextColumn get temperatureSite => text().nullable()();
+  IntColumn get bpSystolic => integer().nullable()();
+  IntColumn get bpDiastolic => integer().nullable()();
+  TextColumn get bpArm => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -143,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -162,6 +165,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) {
         await _migrateFromV4();
+      }
+      if (from < 6) {
+        await _migrateFromV5();
       }
     },
   );
@@ -409,5 +415,15 @@ CREATE TABLE IF NOT EXISTS ai_chats (
     await customStatement(
       'ALTER TABLE diary_entries ADD COLUMN marked_for_ai_review INTEGER NOT NULL DEFAULT 0;',
     );
+  }
+
+  Future<void> _migrateFromV5() async {
+    await customStatement(
+      'ALTER TABLE diary_entries ADD COLUMN bp_systolic INTEGER;',
+    );
+    await customStatement(
+      'ALTER TABLE diary_entries ADD COLUMN bp_diastolic INTEGER;',
+    );
+    await customStatement('ALTER TABLE diary_entries ADD COLUMN bp_arm TEXT;');
   }
 }

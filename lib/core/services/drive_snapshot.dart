@@ -42,7 +42,7 @@ class DriveSnapshot {
   });
 
   /// Bump whenever the on-disk JSON shape changes.
-  static const int version = 6;
+  static const int version = 7;
 
   final Map<String, SyncedDiaryEntry> diaryEntries; // id -> row + metrics
   final SyncedUserProfile? userProfile; // id == 1

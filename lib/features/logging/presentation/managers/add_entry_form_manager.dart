@@ -19,6 +19,9 @@ class AddEntryFormManager {
   final nameController = TextEditingController();
   final temperatureController = TextEditingController();
   final temperatureCommentController = TextEditingController();
+  final bpSystolicController = TextEditingController();
+  final bpDiastolicController = TextEditingController();
+  final bpNoteController = TextEditingController();
   final metricControllers = {
     for (final metric in NutritionMetricType.values)
       metric: TextEditingController(),
@@ -54,6 +57,9 @@ class AddEntryFormManager {
     nameController.dispose();
     temperatureController.dispose();
     temperatureCommentController.dispose();
+    bpSystolicController.dispose();
+    bpDiastolicController.dispose();
+    bpNoteController.dispose();
     for (final controller in metricControllers.values) {
       controller.dispose();
     }
@@ -72,6 +78,11 @@ class AddEntryFormManager {
         : _formatMetric(entry.temperatureValue!);
     temperatureCommentController.text = entry.type == EntryType.temperature
         ? _temperatureCommentText(entry)
+        : '';
+    bpSystolicController.text = entry.bpSystolic?.toString() ?? '';
+    bpDiastolicController.text = entry.bpDiastolic?.toString() ?? '';
+    bpNoteController.text = entry.type == EntryType.bloodPressure
+        ? entry.description ?? ''
         : '';
     _applyMetrics(entry);
     durationController.text = entry.durationMinutes?.toString() ?? '';
@@ -118,6 +129,18 @@ class AddEntryFormManager {
     bool? markedForAiReview,
   }) async {
     final state = ref.read(addEntryControllerProvider);
+    if (state.type == EntryType.bloodPressure) {
+      await ref
+          .read(addEntryControllerProvider.notifier)
+          .saveBloodPressureEntry(
+            existingEntry: existingEntry,
+            systolicText: bpSystolicController.text,
+            diastolicText: bpDiastolicController.text,
+            noteText: bpNoteController.text,
+          );
+      return;
+    }
+
     if (state.type == EntryType.temperature) {
       await ref
           .read(addEntryControllerProvider.notifier)

@@ -11,6 +11,7 @@ import 'package:nutrinutri/core/services/data_portability_service.dart';
 import 'package:nutrinutri/core/services/google_user_info.dart';
 import 'package:nutrinutri/core/utils/platform_helper.dart';
 import 'package:nutrinutri/core/widgets/responsive_center.dart';
+import 'package:nutrinutri/features/dashboard/presentation/blood_pressure_providers.dart';
 import 'package:nutrinutri/features/dashboard/presentation/dashboard_providers.dart';
 import 'package:nutrinutri/features/diary/application/diary_controller.dart';
 import 'package:nutrinutri/features/settings/presentation/managers/settings_form_manager.dart';
@@ -34,6 +35,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isImportingBackup = false;
   bool _isExportingDailyXlsx = false;
   bool _isExportingTemperatureCsv = false;
+  bool _isExportingBloodPressureCsv = false;
   bool _isClearingAiReviewQueue = false;
   late Future<int> _aiReviewCountFuture;
 
@@ -354,6 +356,35 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  Future<void> _exportBloodPressureCsv() async {
+    if (_isExportingBloodPressureCsv) return;
+    setState(() => _isExportingBloodPressureCsv = true);
+    try {
+      final result = await _dataPortabilityService().exportBloodPressureCsv();
+      if (!mounted) return;
+
+      final readingLabel = result?.entryCount == 1 ? 'reading' : 'readings';
+      final message = result == null
+          ? 'BP export cancelled'
+          : _exportMessage(
+              'Exported ${result.entryCount} BP $readingLabel with summary',
+              result,
+            );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('BP export failed: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingBloodPressureCsv = false);
+      }
+    }
+  }
+
   Future<void> _importData() async {
     if (_isImportingData) return;
     setState(() => _isImportingData = true);
@@ -436,6 +467,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ref.invalidate(dailySummaryProvider(date));
       ref.invalidate(dailySummaryDataProvider(date));
     }
+    ref.invalidate(bloodPressureWindowProvider);
   }
 
   Future<void> _openLicenses() async {
@@ -485,6 +517,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       onImportBackup: () => unawaited(_importBackup()),
       onExportDailyXlsx: () => unawaited(_exportDailyXlsx()),
       onExportTemperatureCsv: () => unawaited(_exportTemperatureCsv()),
+      onExportBloodPressureCsv: () => unawaited(_exportBloodPressureCsv()),
       onClearAiReviewQueue: () => unawaited(_clearAiReviewQueue()),
       onOpenLicenses: () => unawaited(_openLicenses()),
       onRefreshGeminiModels: () =>
@@ -495,6 +528,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       isImportingBackup: _isImportingBackup,
       isExportingDailyXlsx: _isExportingDailyXlsx,
       isExportingTemperatureCsv: _isExportingTemperatureCsv,
+      isExportingBloodPressureCsv: _isExportingBloodPressureCsv,
       isClearingAiReviewQueue: _isClearingAiReviewQueue,
     );
 
@@ -598,6 +632,7 @@ class _SettingsSections extends StatelessWidget {
     required this.onImportBackup,
     required this.onExportDailyXlsx,
     required this.onExportTemperatureCsv,
+    required this.onExportBloodPressureCsv,
     required this.onClearAiReviewQueue,
     required this.onOpenLicenses,
     required this.onRefreshGeminiModels,
@@ -607,6 +642,7 @@ class _SettingsSections extends StatelessWidget {
     required this.isImportingBackup,
     required this.isExportingDailyXlsx,
     required this.isExportingTemperatureCsv,
+    required this.isExportingBloodPressureCsv,
     required this.isClearingAiReviewQueue,
   });
 
@@ -627,6 +663,7 @@ class _SettingsSections extends StatelessWidget {
   final VoidCallback onImportBackup;
   final VoidCallback onExportDailyXlsx;
   final VoidCallback onExportTemperatureCsv;
+  final VoidCallback onExportBloodPressureCsv;
   final VoidCallback onClearAiReviewQueue;
   final VoidCallback onOpenLicenses;
   final VoidCallback onRefreshGeminiModels;
@@ -636,6 +673,7 @@ class _SettingsSections extends StatelessWidget {
   final bool isImportingBackup;
   final bool isExportingDailyXlsx;
   final bool isExportingTemperatureCsv;
+  final bool isExportingBloodPressureCsv;
   final bool isClearingAiReviewQueue;
 
   @override
@@ -643,6 +681,11 @@ class _SettingsSections extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _BloodPressureSection(
+          isExporting: isExportingBloodPressureCsv,
+          onExport: onExportBloodPressureCsv,
+        ),
+        const _SettingsSectionBreak(),
         AIConfigurationSection(
           provider: state.provider,
           apiKeyController: formManager.apiKeyController,
@@ -710,6 +753,57 @@ class _SettingsSectionBreak extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Column(children: [Gap(32), Divider(), Gap(16)]);
+  }
+}
+
+class _BloodPressureSection extends StatelessWidget {
+  const _BloodPressureSection({
+    required this.isExporting,
+    required this.onExport,
+  });
+
+  final bool isExporting;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Blood Pressure',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        const Gap(8),
+        Card(
+          elevation: 0,
+          color: colorScheme.primaryContainer.withValues(alpha: 0.45),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: colorScheme.primary),
+          ),
+          child: ListTile(
+            title: const Text('Export BP Report (CSV)'),
+            subtitle: const Text(
+              'Summary and weekly averages on top, then every reading '
+              'with date and time',
+            ),
+            leading: const Icon(Icons.monitor_heart),
+            trailing: isExporting
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right),
+            onTap: isExporting ? null : onExport,
+          ),
+        ),
+      ],
+    );
   }
 }
 

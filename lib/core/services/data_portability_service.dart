@@ -13,6 +13,8 @@ import 'package:nutrinutri/core/domain/nutrition_metric.dart';
 import 'package:nutrinutri/core/services/device_id_service.dart';
 import 'package:nutrinutri/core/services/settings_service.dart';
 import 'package:nutrinutri/core/services/sync_service.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure_report.dart';
 import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -30,7 +32,7 @@ class DataPortabilityService {
   );
   static const _uuid = Uuid();
   static const _backupVersion = 1;
-  static const _appVersion = '0.1.3+4';
+  static const _appVersion = '0.1.4+5';
   static const _notConfiguredLabel = 'Not configured';
   static const _notEligibleLabel = 'Not eligible';
   static const _baseHeaders = [
@@ -48,6 +50,9 @@ class DataPortabilityService {
     'temperature_unit',
     'temperature_site',
     'temperature_comment',
+    'bp_systolic',
+    'bp_diastolic',
+    'bp_arm',
     'icon',
   ];
   static const _dailyXlsxBaseHeaders = [
@@ -143,6 +148,61 @@ class DataPortabilityService {
     );
   }
 
+  /// Blood pressure report: summary and weekly averages at the top, then
+  /// every reading with its date and time.
+  Future<DataExportResult?> exportBloodPressureCsv() async {
+    final rows =
+        await (_db.select(_db.diaryEntries)
+              ..where(
+                (t) =>
+                    t.deletedAt.isNull() &
+                    t.type.equals(EntryType.bloodPressure.index),
+              )
+              ..orderBy([(t) => OrderingTerm.asc(t.timestamp)]))
+            .get();
+
+    final readings = <BpReading>[];
+    for (final row in rows) {
+      final systolic = row.bpSystolic;
+      final diastolic = row.bpDiastolic;
+      if (systolic == null || diastolic == null) continue;
+      final note = row.description?.trim();
+      readings.add(
+        BpReading(
+          id: row.id,
+          timestamp: DateTime.fromMillisecondsSinceEpoch(row.timestamp),
+          systolic: systolic,
+          diastolic: diastolic,
+          arm: row.bpArm,
+          note: note == null || note.isEmpty ? null : note,
+        ),
+      );
+    }
+
+    final now = DateTime.now();
+    // The byte order mark lets Excel read notes typed in any language.
+    final csv = '\uFEFF${buildBloodPressureReportCsv(readings, now: now)}';
+    final csvBytes = Uint8List.fromList(utf8.encode(csv));
+    final fileName = 'bp-report-${_datePart(now)}-${_timePart(now)}.csv';
+
+    final savedPath = await _saveFileBytes(
+      dialogTitle: 'Export blood pressure report',
+      fileName: fileName,
+      allowedExtensions: const ['csv'],
+      bytes: csvBytes,
+    );
+
+    if (savedPath == null && !kIsWeb) {
+      return null;
+    }
+
+    return DataExportResult(
+      entryCount: readings.length,
+      path: savedPath,
+      byteCount: csvBytes.length,
+    );
+  }
+
   Future<DataExportResult?> exportDailyXlsx() async {
     final rows =
         await (_db.select(_db.diaryEntries)
@@ -159,6 +219,8 @@ class DataPortabilityService {
         await _loadDailyCalculationExportIneligibleDateKeys();
     final rowsByDate = <String, List<DiaryEntryRow>>{};
     for (final row in rows) {
+      // BP readings have their own report; keep them out of nutrition totals.
+      if (row.type == EntryType.bloodPressure.index) continue;
       final timestamp = DateTime.fromMillisecondsSinceEpoch(row.timestamp);
       rowsByDate.putIfAbsent(_datePart(timestamp), () => []).add(row);
     }
@@ -493,6 +555,9 @@ class DataPortabilityService {
                 temperatureValue: Value(entry.temperatureValue),
                 temperatureUnit: Value(entry.temperatureUnit),
                 temperatureSite: Value(entry.temperatureSite),
+                bpSystolic: Value(entry.bpSystolic),
+                bpDiastolic: Value(entry.bpDiastolic),
+                bpArm: Value(entry.bpArm),
                 updatedAt: Value(now),
                 updatedBy: Value(deviceId),
                 deletedAt: const Value(null),
@@ -962,6 +1027,9 @@ class DataPortabilityService {
         row.temperatureUnit ?? '',
         row.temperatureSite ?? '',
         _temperatureComment(row),
+        row.bpSystolic?.toString() ?? '',
+        row.bpDiastolic?.toString() ?? '',
+        row.bpArm ?? '',
         row.icon ?? '',
         ...NutritionMetricType.values.map(
           (metric) => _csvMetricCell(metrics, metric),
@@ -1421,6 +1489,9 @@ class DataPortabilityService {
     final temperatureSite = _blankToNull(
       _cell(row, headerIndex, 'temperature_site'),
     );
+    final bpSystolic = _parseInt(_cell(row, headerIndex, 'bp_systolic'));
+    final bpDiastolic = _parseInt(_cell(row, headerIndex, 'bp_diastolic'));
+    final bpArm = normalizeBpArm(_cell(row, headerIndex, 'bp_arm'));
     final description = _entryDescriptionFromCsv(row, headerIndex, type);
     final metrics = <NutritionMetricType, double>{};
 
@@ -1443,6 +1514,9 @@ class DataPortabilityService {
       temperatureValue: temperatureValue,
       temperatureUnit: temperatureUnit,
       temperatureSite: temperatureSite,
+      bpSystolic: bpSystolic,
+      bpDiastolic: bpDiastolic,
+      bpArm: bpArm,
       icon: icon,
       metrics: metrics,
     );
@@ -1990,6 +2064,12 @@ class DataPortabilityService {
       case 'temp':
       case '2':
         return EntryType.temperature;
+      case 'bloodpressure':
+      case 'blood_pressure':
+      case 'blood pressure':
+      case 'bp':
+      case '3':
+        return EntryType.bloodPressure;
       case 'food':
       case 'meal':
       case '0':
@@ -2172,6 +2252,9 @@ class _ImportedCsvEntry {
     required this.temperatureValue,
     required this.temperatureUnit,
     required this.temperatureSite,
+    required this.bpSystolic,
+    required this.bpDiastolic,
+    required this.bpArm,
     required this.icon,
     required this.metrics,
   });
@@ -2187,6 +2270,9 @@ class _ImportedCsvEntry {
   final double? temperatureValue;
   final String? temperatureUnit;
   final String? temperatureSite;
+  final int? bpSystolic;
+  final int? bpDiastolic;
+  final String? bpArm;
   final String? icon;
   final Map<NutritionMetricType, double> metrics;
 }

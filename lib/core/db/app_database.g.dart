@@ -203,6 +203,37 @@ class $DiaryEntriesTable extends DiaryEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _bpSystolicMeta = const VerificationMeta(
+    'bpSystolic',
+  );
+  @override
+  late final GeneratedColumn<int> bpSystolic = GeneratedColumn<int>(
+    'bp_systolic',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bpDiastolicMeta = const VerificationMeta(
+    'bpDiastolic',
+  );
+  @override
+  late final GeneratedColumn<int> bpDiastolic = GeneratedColumn<int>(
+    'bp_diastolic',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bpArmMeta = const VerificationMeta('bpArm');
+  @override
+  late final GeneratedColumn<String> bpArm = GeneratedColumn<String>(
+    'bp_arm',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -223,6 +254,9 @@ class $DiaryEntriesTable extends DiaryEntries
     temperatureValue,
     temperatureUnit,
     temperatureSite,
+    bpSystolic,
+    bpDiastolic,
+    bpArm,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -372,6 +406,27 @@ class $DiaryEntriesTable extends DiaryEntries
         ),
       );
     }
+    if (data.containsKey('bp_systolic')) {
+      context.handle(
+        _bpSystolicMeta,
+        bpSystolic.isAcceptableOrUnknown(data['bp_systolic']!, _bpSystolicMeta),
+      );
+    }
+    if (data.containsKey('bp_diastolic')) {
+      context.handle(
+        _bpDiastolicMeta,
+        bpDiastolic.isAcceptableOrUnknown(
+          data['bp_diastolic']!,
+          _bpDiastolicMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bp_arm')) {
+      context.handle(
+        _bpArmMeta,
+        bpArm.isAcceptableOrUnknown(data['bp_arm']!, _bpArmMeta),
+      );
+    }
     return context;
   }
 
@@ -453,6 +508,18 @@ class $DiaryEntriesTable extends DiaryEntries
         DriftSqlType.string,
         data['${effectivePrefix}temperature_site'],
       ),
+      bpSystolic: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bp_systolic'],
+      ),
+      bpDiastolic: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bp_diastolic'],
+      ),
+      bpArm: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bp_arm'],
+      ),
     );
   }
 
@@ -481,6 +548,9 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
   final double? temperatureValue;
   final String? temperatureUnit;
   final String? temperatureSite;
+  final int? bpSystolic;
+  final int? bpDiastolic;
+  final String? bpArm;
   const DiaryEntryRow({
     required this.updatedAt,
     required this.updatedBy,
@@ -500,6 +570,9 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
     this.temperatureValue,
     this.temperatureUnit,
     this.temperatureSite,
+    this.bpSystolic,
+    this.bpDiastolic,
+    this.bpArm,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -540,6 +613,15 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
     if (!nullToAbsent || temperatureSite != null) {
       map['temperature_site'] = Variable<String>(temperatureSite);
     }
+    if (!nullToAbsent || bpSystolic != null) {
+      map['bp_systolic'] = Variable<int>(bpSystolic);
+    }
+    if (!nullToAbsent || bpDiastolic != null) {
+      map['bp_diastolic'] = Variable<int>(bpDiastolic);
+    }
+    if (!nullToAbsent || bpArm != null) {
+      map['bp_arm'] = Variable<String>(bpArm);
+    }
     return map;
   }
 
@@ -579,6 +661,15 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
       temperatureSite: temperatureSite == null && nullToAbsent
           ? const Value.absent()
           : Value(temperatureSite),
+      bpSystolic: bpSystolic == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bpSystolic),
+      bpDiastolic: bpDiastolic == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bpDiastolic),
+      bpArm: bpArm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bpArm),
     );
   }
 
@@ -610,6 +701,9 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
       ),
       temperatureUnit: serializer.fromJson<String?>(json['temperatureUnit']),
       temperatureSite: serializer.fromJson<String?>(json['temperatureSite']),
+      bpSystolic: serializer.fromJson<int?>(json['bpSystolic']),
+      bpDiastolic: serializer.fromJson<int?>(json['bpDiastolic']),
+      bpArm: serializer.fromJson<String?>(json['bpArm']),
     );
   }
   @override
@@ -634,6 +728,9 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
       'temperatureValue': serializer.toJson<double?>(temperatureValue),
       'temperatureUnit': serializer.toJson<String?>(temperatureUnit),
       'temperatureSite': serializer.toJson<String?>(temperatureSite),
+      'bpSystolic': serializer.toJson<int?>(bpSystolic),
+      'bpDiastolic': serializer.toJson<int?>(bpDiastolic),
+      'bpArm': serializer.toJson<String?>(bpArm),
     };
   }
 
@@ -656,6 +753,9 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
     Value<double?> temperatureValue = const Value.absent(),
     Value<String?> temperatureUnit = const Value.absent(),
     Value<String?> temperatureSite = const Value.absent(),
+    Value<int?> bpSystolic = const Value.absent(),
+    Value<int?> bpDiastolic = const Value.absent(),
+    Value<String?> bpArm = const Value.absent(),
   }) => DiaryEntryRow(
     updatedAt: updatedAt ?? this.updatedAt,
     updatedBy: updatedBy ?? this.updatedBy,
@@ -683,6 +783,9 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
     temperatureSite: temperatureSite.present
         ? temperatureSite.value
         : this.temperatureSite,
+    bpSystolic: bpSystolic.present ? bpSystolic.value : this.bpSystolic,
+    bpDiastolic: bpDiastolic.present ? bpDiastolic.value : this.bpDiastolic,
+    bpArm: bpArm.present ? bpArm.value : this.bpArm,
   );
   DiaryEntryRow copyWithCompanion(DiaryEntriesCompanion data) {
     return DiaryEntryRow(
@@ -718,6 +821,13 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
       temperatureSite: data.temperatureSite.present
           ? data.temperatureSite.value
           : this.temperatureSite,
+      bpSystolic: data.bpSystolic.present
+          ? data.bpSystolic.value
+          : this.bpSystolic,
+      bpDiastolic: data.bpDiastolic.present
+          ? data.bpDiastolic.value
+          : this.bpDiastolic,
+      bpArm: data.bpArm.present ? data.bpArm.value : this.bpArm,
     );
   }
 
@@ -741,13 +851,16 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
           ..write('durationMinutes: $durationMinutes, ')
           ..write('temperatureValue: $temperatureValue, ')
           ..write('temperatureUnit: $temperatureUnit, ')
-          ..write('temperatureSite: $temperatureSite')
+          ..write('temperatureSite: $temperatureSite, ')
+          ..write('bpSystolic: $bpSystolic, ')
+          ..write('bpDiastolic: $bpDiastolic, ')
+          ..write('bpArm: $bpArm')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     updatedAt,
     updatedBy,
     deletedAt,
@@ -766,7 +879,10 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
     temperatureValue,
     temperatureUnit,
     temperatureSite,
-  );
+    bpSystolic,
+    bpDiastolic,
+    bpArm,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -788,7 +904,10 @@ class DiaryEntryRow extends DataClass implements Insertable<DiaryEntryRow> {
           other.durationMinutes == this.durationMinutes &&
           other.temperatureValue == this.temperatureValue &&
           other.temperatureUnit == this.temperatureUnit &&
-          other.temperatureSite == this.temperatureSite);
+          other.temperatureSite == this.temperatureSite &&
+          other.bpSystolic == this.bpSystolic &&
+          other.bpDiastolic == this.bpDiastolic &&
+          other.bpArm == this.bpArm);
 }
 
 class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
@@ -810,6 +929,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
   final Value<double?> temperatureValue;
   final Value<String?> temperatureUnit;
   final Value<String?> temperatureSite;
+  final Value<int?> bpSystolic;
+  final Value<int?> bpDiastolic;
+  final Value<String?> bpArm;
   final Value<int> rowid;
   const DiaryEntriesCompanion({
     this.updatedAt = const Value.absent(),
@@ -830,6 +952,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
     this.temperatureValue = const Value.absent(),
     this.temperatureUnit = const Value.absent(),
     this.temperatureSite = const Value.absent(),
+    this.bpSystolic = const Value.absent(),
+    this.bpDiastolic = const Value.absent(),
+    this.bpArm = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DiaryEntriesCompanion.insert({
@@ -851,6 +976,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
     this.temperatureValue = const Value.absent(),
     this.temperatureUnit = const Value.absent(),
     this.temperatureSite = const Value.absent(),
+    this.bpSystolic = const Value.absent(),
+    this.bpDiastolic = const Value.absent(),
+    this.bpArm = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -876,6 +1004,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
     Expression<double>? temperatureValue,
     Expression<String>? temperatureUnit,
     Expression<String>? temperatureSite,
+    Expression<int>? bpSystolic,
+    Expression<int>? bpDiastolic,
+    Expression<String>? bpArm,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -898,6 +1029,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
       if (temperatureValue != null) 'temperature_value': temperatureValue,
       if (temperatureUnit != null) 'temperature_unit': temperatureUnit,
       if (temperatureSite != null) 'temperature_site': temperatureSite,
+      if (bpSystolic != null) 'bp_systolic': bpSystolic,
+      if (bpDiastolic != null) 'bp_diastolic': bpDiastolic,
+      if (bpArm != null) 'bp_arm': bpArm,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -921,6 +1055,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
     Value<double?>? temperatureValue,
     Value<String?>? temperatureUnit,
     Value<String?>? temperatureSite,
+    Value<int?>? bpSystolic,
+    Value<int?>? bpDiastolic,
+    Value<String?>? bpArm,
     Value<int>? rowid,
   }) {
     return DiaryEntriesCompanion(
@@ -942,6 +1079,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
       temperatureValue: temperatureValue ?? this.temperatureValue,
       temperatureUnit: temperatureUnit ?? this.temperatureUnit,
       temperatureSite: temperatureSite ?? this.temperatureSite,
+      bpSystolic: bpSystolic ?? this.bpSystolic,
+      bpDiastolic: bpDiastolic ?? this.bpDiastolic,
+      bpArm: bpArm ?? this.bpArm,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1003,6 +1143,15 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
     if (temperatureSite.present) {
       map['temperature_site'] = Variable<String>(temperatureSite.value);
     }
+    if (bpSystolic.present) {
+      map['bp_systolic'] = Variable<int>(bpSystolic.value);
+    }
+    if (bpDiastolic.present) {
+      map['bp_diastolic'] = Variable<int>(bpDiastolic.value);
+    }
+    if (bpArm.present) {
+      map['bp_arm'] = Variable<String>(bpArm.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1030,6 +1179,9 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntryRow> {
           ..write('temperatureValue: $temperatureValue, ')
           ..write('temperatureUnit: $temperatureUnit, ')
           ..write('temperatureSite: $temperatureSite, ')
+          ..write('bpSystolic: $bpSystolic, ')
+          ..write('bpDiastolic: $bpDiastolic, ')
+          ..write('bpArm: $bpArm, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

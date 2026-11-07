@@ -6,8 +6,11 @@ import 'package:intl/intl.dart';
 import 'package:nutrinutri/core/providers.dart';
 import 'package:nutrinutri/core/utils/icon_utils.dart';
 import 'package:nutrinutri/core/widgets/confirm_dialog.dart';
+import 'package:nutrinutri/features/dashboard/presentation/blood_pressure_providers.dart';
 import 'package:nutrinutri/features/dashboard/presentation/dashboard_providers.dart';
+import 'package:nutrinutri/features/dashboard/presentation/widgets/bp_category_chip.dart';
 import 'package:nutrinutri/features/diary/application/diary_controller.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure.dart';
 import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 
 class EntriesList extends ConsumerWidget {
@@ -23,6 +26,17 @@ class EntriesList extends ConsumerWidget {
   String _subtitleFor(DiaryEntry entry, String caloriesText) {
     if (entry.type == EntryType.temperature) {
       return '${DateFormat('HH:mm').format(entry.timestamp)} - ${entry.temperatureSiteLabel}';
+    }
+
+    final bp = entry.bpReading;
+    if (bp != null) {
+      final arm = bpArmLabel(bp.arm);
+      final note = bp.note;
+      return [
+        DateFormat('h:mm a').format(entry.timestamp),
+        if (arm.isNotEmpty) arm,
+        if (note != null) note,
+      ].join(' - ');
     }
 
     return switch (entry.status) {
@@ -49,6 +63,7 @@ class EntriesList extends ConsumerWidget {
   void _refreshDay(WidgetRef ref) {
     ref.invalidate(dayEntriesProvider(today));
     ref.invalidate(dailySummaryProvider(today));
+    ref.invalidate(bloodPressureWindowProvider);
     onRefresh();
   }
 
@@ -74,9 +89,12 @@ class EntriesList extends ConsumerWidget {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                final iconData = entry.type == EntryType.temperature
-                    ? Icons.thermostat
-                    : IconUtils.getIcon(entry.icon);
+                final iconData = switch (entry.type) {
+                  EntryType.temperature => Icons.thermostat,
+                  EntryType.bloodPressure => Icons.monitor_heart,
+                  _ => IconUtils.getIcon(entry.icon),
+                };
+                final bpInRange = entry.bpReading?.category.isInRange ?? false;
                 final caloriesText =
                     entry.calories == entry.calories.roundToDouble()
                     ? entry.calories.round().toString()
@@ -94,7 +112,10 @@ class EntriesList extends ConsumerWidget {
                   leading: CircleAvatar(
                     backgroundColor: isError
                         ? Theme.of(context).colorScheme.errorContainer
+                        : bpInRange
+                        ? bpInRangeColor
                         : null,
+                    foregroundColor: bpInRange ? Colors.white : null,
                     child: isProcessing
                         ? const Padding(
                             padding: EdgeInsets.all(8.0),
@@ -108,9 +129,11 @@ class EntriesList extends ConsumerWidget {
                         : Icon(iconData),
                   ),
                   title: Text(
-                    entry.type == EntryType.temperature
-                        ? entry.temperatureDisplay
-                        : entry.name,
+                    switch (entry.type) {
+                      EntryType.temperature => entry.temperatureDisplay,
+                      EntryType.bloodPressure => entry.bpDisplay,
+                      _ => entry.name,
+                    },
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: isError

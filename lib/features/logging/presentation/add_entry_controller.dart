@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 
@@ -6,6 +7,7 @@ import 'package:nutrinutri/core/domain/nutrition_metric.dart';
 import 'package:nutrinutri/core/providers.dart';
 import 'package:nutrinutri/core/utils/met_values.dart';
 import 'package:nutrinutri/features/diary/application/diary_controller.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure.dart';
 import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -24,6 +26,7 @@ class AddEntryState {
     this.type = EntryType.food,
     this.temperatureUnit = 'C',
     this.temperatureSite = 'under_tongue',
+    this.bpArm = 'left',
   }) : images = List.unmodifiable(images ?? const []);
   final List<File> images;
   final bool showForm;
@@ -33,6 +36,7 @@ class AddEntryState {
   final EntryType type;
   final String temperatureUnit;
   final String temperatureSite;
+  final String bpArm;
   File? get image => images.isEmpty ? null : images.first;
 
   AddEntryState copyWith({
@@ -44,6 +48,7 @@ class AddEntryState {
     EntryType? type,
     String? temperatureUnit,
     String? temperatureSite,
+    String? bpArm,
   }) {
     return AddEntryState(
       images: images ?? this.images,
@@ -54,6 +59,7 @@ class AddEntryState {
       type: type ?? this.type,
       temperatureUnit: temperatureUnit ?? this.temperatureUnit,
       temperatureSite: temperatureSite ?? this.temperatureSite,
+      bpArm: bpArm ?? this.bpArm,
     );
   }
 }
@@ -62,6 +68,7 @@ class AddEntryState {
 class AddEntryController extends _$AddEntryController {
   final _picker = ImagePicker();
   static const _uuid = Uuid();
+  bool _bpArmChosen = false;
 
   @override
   AddEntryState build() {
@@ -77,8 +84,24 @@ class AddEntryController extends _$AddEntryController {
     state = state.copyWith(
       type: type,
       selectedIcon: _defaultIconForType(type),
-      showForm: type == EntryType.temperature ? true : state.showForm,
+      showForm:
+          type == EntryType.temperature || type == EntryType.bloodPressure
+          ? true
+          : state.showForm,
     );
+    if (type == EntryType.bloodPressure) {
+      unawaited(_loadLastBpArm());
+    }
+  }
+
+  /// New BP readings default to the arm used last time.
+  Future<void> _loadLastBpArm() async {
+    final arm = normalizeBpArm(
+      await ref.read(diaryServiceProvider).latestBloodPressureArm(),
+    );
+    if (!ref.mounted || arm == null || _bpArmChosen) return;
+    if (state.type != EntryType.bloodPressure) return;
+    state = state.copyWith(bpArm: arm);
   }
 
   void initializeWithEntry(DiaryEntry entry) {
@@ -91,6 +114,7 @@ class AddEntryController extends _$AddEntryController {
       type: entry.type,
       temperatureUnit: entry.temperatureUnit ?? 'C',
       temperatureSite: _normalizeTemperatureSite(entry.temperatureSite),
+      bpArm: normalizeBpArm(entry.bpArm) ?? 'left',
     );
   }
 
@@ -168,6 +192,11 @@ class AddEntryController extends _$AddEntryController {
 
   void updateTemperatureSite(String site) {
     state = state.copyWith(temperatureSite: site);
+  }
+
+  void updateBpArm(String arm) {
+    _bpArmChosen = true;
+    state = state.copyWith(bpArm: normalizeBpArm(arm) ?? 'left');
   }
 
   void toggleForm(bool show) {
@@ -304,6 +333,49 @@ class AddEntryController extends _$AddEntryController {
     }
   }
 
+  Future<void> saveBloodPressureEntry({
+    required DiaryEntry? existingEntry,
+    required String systolicText,
+    required String diastolicText,
+    String? noteText,
+  }) async {
+    final systolic = int.tryParse(systolicText.trim());
+    final diastolic = int.tryParse(diastolicText.trim());
+    final error = validateBpReading(systolic, diastolic);
+    if (error != null) {
+      throw Exception(error);
+    }
+
+    final timestamp = DateTime(
+      state.selectedDate.year,
+      state.selectedDate.month,
+      state.selectedDate.day,
+      state.selectedTime.hour,
+      state.selectedTime.minute,
+    );
+    final note = noteText?.trim();
+    final entry = DiaryEntry(
+      id: existingEntry?.id ?? const Uuid().v4(),
+      name: 'BP $systolic/$diastolic',
+      type: EntryType.bloodPressure,
+      metrics: const {},
+      timestamp: timestamp,
+      icon: 'monitor_heart',
+      status: FoodEntryStatus.synced,
+      description: note?.isEmpty == false ? note : null,
+      bpSystolic: systolic,
+      bpDiastolic: diastolic,
+      bpArm: normalizeBpArm(state.bpArm) ?? 'left',
+    );
+
+    final diaryService = ref.read(diaryServiceProvider);
+    if (existingEntry != null) {
+      await diaryService.updateEntry(entry);
+    } else {
+      await diaryService.addEntry(entry);
+    }
+  }
+
   Future<void> deleteEntry(DiaryEntry entry) async {
     await ref.read(diaryServiceProvider).deleteEntry(entry);
   }
@@ -342,6 +414,7 @@ class AddEntryController extends _$AddEntryController {
     return switch (type) {
       EntryType.exercise => 'directions_run',
       EntryType.temperature => 'thermostat',
+      EntryType.bloodPressure => 'monitor_heart',
       EntryType.food => 'restaurant',
     };
   }

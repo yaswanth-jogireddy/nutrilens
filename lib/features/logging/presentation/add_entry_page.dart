@@ -13,6 +13,7 @@ import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 import 'package:nutrinutri/features/logging/presentation/add_entry_controller.dart';
 import 'package:nutrinutri/features/logging/presentation/managers/add_entry_form_manager.dart';
 import 'package:nutrinutri/features/logging/presentation/widgets/ai_entry_wizard.dart';
+import 'package:nutrinutri/features/logging/presentation/widgets/blood_pressure_entry_section.dart';
 import 'package:nutrinutri/features/logging/presentation/widgets/manual_entry_section.dart';
 import 'package:nutrinutri/features/logging/presentation/widgets/temperature_entry_section.dart';
 
@@ -117,9 +118,10 @@ class _AddEntryPageState extends ConsumerState<AddEntryPage> {
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
+        final message = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not save: $message')));
       }
     }
   }
@@ -341,12 +343,16 @@ class _AddEntryPageState extends ConsumerState<AddEntryPage> {
 
     final isExercise = entryType == EntryType.exercise;
     final isTemperature = entryType == EntryType.temperature;
+    final isBloodPressure = entryType == EntryType.bloodPressure;
+    final usesCustomForm = isTemperature || isBloodPressure;
     final title = isEditing
-        ? 'Edit Entry'
+        ? (isBloodPressure ? 'Edit BP Reading' : 'Edit Entry')
         : isExercise
         ? 'Log Exercise'
         : isTemperature
         ? 'Log Temperature'
+        : isBloodPressure
+        ? 'Log BP'
         : 'Log Food';
 
     return Scaffold(
@@ -357,7 +363,7 @@ class _AddEntryPageState extends ConsumerState<AddEntryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!isEditing && !state.showForm && !isTemperature)
+              if (!isEditing && !state.showForm && !usesCustomForm)
                 AIEntryWizard(
                   isExercise: isExercise,
                   descriptionController: _formManager.descriptionController,
@@ -415,7 +421,35 @@ class _AddEntryPageState extends ConsumerState<AddEntryPage> {
                     }
                   },
                 ),
-              if (state.showForm && !isTemperature)
+              if (isBloodPressure)
+                BloodPressureEntrySection(
+                  isEditing: isEditing,
+                  systolicController: _formManager.bpSystolicController,
+                  diastolicController: _formManager.bpDiastolicController,
+                  noteController: _formManager.bpNoteController,
+                  selectedArm: state.bpArm,
+                  selectedDate: state.selectedDate,
+                  selectedTime: state.selectedTime,
+                  onArmChanged: (arm) => ref
+                      .read(addEntryControllerProvider.notifier)
+                      .updateBpArm(arm),
+                  onPickDate: _pickDate,
+                  onPickTime: _pickTime,
+                  onSave: _saveEntry,
+                  onDeleteConfirmed: () async {
+                    try {
+                      await _formManager.deleteEntry(widget.existingEntry!);
+                      if (context.mounted) context.pop();
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to delete: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              if (state.showForm && !usesCustomForm)
                 ManualEntrySection(
                   isEditing: isEditing,
                   isExercise: isExercise,

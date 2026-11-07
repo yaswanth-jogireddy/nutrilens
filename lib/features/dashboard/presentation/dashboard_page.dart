@@ -4,7 +4,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nutrinutri/core/utils/platform_helper.dart';
+import 'package:nutrinutri/features/dashboard/presentation/blood_pressure_providers.dart';
 import 'package:nutrinutri/features/dashboard/presentation/dashboard_providers.dart';
+import 'package:nutrinutri/features/dashboard/presentation/widgets/blood_pressure_card.dart';
 import 'package:nutrinutri/features/dashboard/presentation/widgets/daily_summary_section.dart';
 import 'package:nutrinutri/features/dashboard/presentation/widgets/date_switcher.dart';
 import 'package:nutrinutri/features/dashboard/presentation/widgets/entries_list.dart';
@@ -39,6 +41,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   void _refresh() {
     ref.invalidate(dailySummaryProvider(_selectedDate));
     ref.invalidate(dayEntriesProvider(_selectedDate));
+    ref.invalidate(bloodPressureWindowProvider);
   }
 
   String _addEntryRoute(EntryType type) {
@@ -50,6 +53,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       EntryType.temperature => Uri(
         path: '/add-entry',
         queryParameters: {'type': 'temperature'},
+      ).toString(),
+      EntryType.bloodPressure => Uri(
+        path: '/add-entry',
+        queryParameters: {'type': 'blood_pressure'},
       ).toString(),
       EntryType.food => '/add-entry',
     };
@@ -112,7 +119,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
           body: isWide
               ? _buildDesktopLayout(context, constraints)
-              : _buildMobileLayout(),
+              : _buildMobileLayout(context),
           floatingActionButton: _buildFAB(context, isWide),
         );
       },
@@ -168,11 +175,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           icon: const Icon(Icons.fitness_center),
                           label: const Text('Log Exercise'),
                         ),
-                        FilledButton.icon(
+                        FilledButton.tonalIcon(
                           onPressed: () =>
                               _openAddEntry(context, type: EntryType.food),
                           icon: const Icon(Icons.restaurant),
                           label: const Text('Log Food'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () => _openAddEntry(
+                            context,
+                            type: EntryType.bloodPressure,
+                          ),
+                          icon: const Icon(Icons.monitor_heart),
+                          label: const Text('Log BP'),
                         ),
                       ],
                     ),
@@ -195,6 +210,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               selectedDate: _selectedDate,
                               onDateChange: _updateDate,
                             ),
+                            const Gap(16),
+                            _bloodPressureCard(context),
                             const Gap(16),
                             DailySummarySection(today: _selectedDate),
                             const Gap(16),
@@ -228,13 +245,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildMobileLayout() {
+  Widget _bloodPressureCard(BuildContext context) {
+    return BloodPressureCard(
+      day: _selectedDate,
+      onLogBp: () => _openAddEntry(context, type: EntryType.bloodPressure),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           DateSwitcher(selectedDate: _selectedDate, onDateChange: _updateDate),
           const Gap(8),
+          _bloodPressureCard(context),
+          const Gap(16),
           DailySummarySection(today: _selectedDate),
           const Gap(16),
           TemperatureTimelineSection(today: _selectedDate),
@@ -253,9 +279,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return null;
     }
 
-    return Column(
+    // One row along the bottom keeps the BP card and chart uncovered.
+    return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         FloatingActionButton.small(
           heroTag: 'log_water',
@@ -263,26 +289,34 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           tooltip: 'Log Water',
           child: const Icon(Icons.water_drop),
         ),
-        const Gap(16),
+        const Gap(8),
         FloatingActionButton.small(
           heroTag: 'log_temperature',
           onPressed: () => _openAddEntry(context, type: EntryType.temperature),
           tooltip: 'Log Temperature',
           child: const Icon(Icons.thermostat),
         ),
-        const Gap(16),
+        const Gap(8),
         FloatingActionButton.small(
           heroTag: 'log_exercise',
           onPressed: () => _openAddEntry(context, type: EntryType.exercise),
           tooltip: 'Log Exercise',
           child: const Icon(Icons.fitness_center),
         ),
-        const Gap(16),
-        FloatingActionButton.extended(
+        const Gap(8),
+        FloatingActionButton.small(
           heroTag: 'log_food',
           onPressed: () => _openAddEntry(context, type: EntryType.food),
-          label: const Text('Log Food'),
-          icon: const Icon(Icons.restaurant),
+          tooltip: 'Log Food',
+          child: const Icon(Icons.restaurant),
+        ),
+        const Gap(12),
+        FloatingActionButton.extended(
+          heroTag: 'log_bp',
+          onPressed: () =>
+              _openAddEntry(context, type: EntryType.bloodPressure),
+          label: const Text('Log BP'),
+          icon: const Icon(Icons.monitor_heart),
         ),
       ],
     );

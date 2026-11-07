@@ -69,6 +69,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final initialType = switch (typeStr) {
             'exercise' => EntryType.exercise,
             'temperature' => EntryType.temperature,
+            'blood_pressure' => EntryType.bloodPressure,
             _ => EntryType.food,
           };
           return MaterialPage(

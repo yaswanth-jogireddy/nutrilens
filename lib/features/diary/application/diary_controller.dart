@@ -9,6 +9,7 @@ import 'package:nutrinutri/core/domain/user_profile.dart';
 import 'package:nutrinutri/core/providers.dart';
 import 'package:nutrinutri/core/services/ai_service.dart';
 import 'package:nutrinutri/core/utils/icon_utils.dart';
+import 'package:nutrinutri/features/dashboard/presentation/blood_pressure_providers.dart';
 import 'package:nutrinutri/features/dashboard/presentation/dashboard_providers.dart';
 import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -224,6 +225,9 @@ class DiaryController extends _$DiaryController {
       temperatureValue: entry.temperatureValue,
       temperatureUnit: entry.temperatureUnit,
       temperatureSite: entry.temperatureSite,
+      bpSystolic: entry.bpSystolic,
+      bpDiastolic: entry.bpDiastolic,
+      bpArm: entry.bpArm,
     );
     await diaryService.updateEntry(processingEntry);
     _invalidateDay(entry.timestamp);
@@ -290,6 +294,9 @@ class DiaryController extends _$DiaryController {
       temperatureValue: entry.temperatureValue,
       temperatureUnit: entry.temperatureUnit,
       temperatureSite: entry.temperatureSite,
+      bpSystolic: entry.bpSystolic,
+      bpDiastolic: entry.bpDiastolic,
+      bpArm: entry.bpArm,
     );
     await diaryService.updateEntry(failedEntry);
     _invalidateDay(entry.timestamp);
@@ -394,6 +401,9 @@ class DiaryController extends _$DiaryController {
       temperatureValue: entry.temperatureValue,
       temperatureUnit: entry.temperatureUnit,
       temperatureSite: entry.temperatureSite,
+      bpSystolic: entry.bpSystolic,
+      bpDiastolic: entry.bpDiastolic,
+      bpArm: entry.bpArm,
     );
 
     await ref.read(diaryServiceProvider).updateEntry(updatedEntry);
@@ -451,6 +461,10 @@ class DiaryController extends _$DiaryController {
 
     if (entry.type == EntryType.temperature) {
       throw Exception('Temperature entries do not use AI analysis.');
+    }
+
+    if (entry.type == EntryType.bloodPressure) {
+      throw Exception('Blood pressure entries do not use AI analysis.');
     }
 
     return aiService.analyzeFood(
@@ -531,6 +545,9 @@ class DiaryController extends _$DiaryController {
       temperatureValue: entry.temperatureValue,
       temperatureUnit: entry.temperatureUnit,
       temperatureSite: entry.temperatureSite,
+      bpSystolic: entry.bpSystolic,
+      bpDiastolic: entry.bpDiastolic,
+      bpArm: entry.bpArm,
     );
   }
 
@@ -650,12 +667,14 @@ class DiaryController extends _$DiaryController {
     final date = DateTime(dateTime.year, dateTime.month, dateTime.day);
     ref.invalidate(dayEntriesProvider(date));
     ref.invalidate(dailySummaryProvider(date));
+    ref.invalidate(bloodPressureWindowProvider);
   }
 
   String _fallbackName(EntryType type) {
     return switch (type) {
       EntryType.exercise => 'Unknown Exercise',
       EntryType.temperature => 'Temperature',
+      EntryType.bloodPressure => 'Blood Pressure',
       EntryType.food => 'Unknown Food',
     };
   }
@@ -664,6 +683,7 @@ class DiaryController extends _$DiaryController {
     return switch (type) {
       EntryType.exercise => 'directions_run',
       EntryType.temperature => 'thermostat',
+      EntryType.bloodPressure => 'monitor_heart',
       EntryType.food => 'restaurant',
     };
   }
