@@ -2,6 +2,9 @@ name: Build APK
 
 on:
   workflow_dispatch:
+  # Build automatically on every push to main, so a fresh APK is always ready.
+  push:
+    branches: [main]
 
 jobs:
   build_apk:
@@ -30,15 +33,20 @@ jobs:
         run: dart format .
 
       - name: Analyze
-        run: flutter analyze
+        id: analyze
+        run: |
+          set -o pipefail
+          flutter analyze 2>&1 | tee analyze.log
 
       - name: Test
+        id: test
         env:
           NUTRINUTRI_GEMINI_TEST_KEY: ${{ secrets.NUTRINUTRI_GEMINI_TEST_KEY }}
           NUTRINUTRI_GEMINI_BACKUP_TEST_KEY: ${{ secrets.NUTRINUTRI_GEMINI_BACKUP_TEST_KEY }}
         run: |
+          set -o pipefail
           if [ -d test ] && find test -name "*_test.dart" -print -quit | grep -q .; then
-            flutter test
+            flutter test 2>&1 | tee test.log
           else
             echo "No Flutter tests found."
           fi
@@ -59,9 +67,11 @@ jobs:
           printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n" "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
 
       - name: Build release APK
+        id: build
         run: |
+          set -o pipefail
           build_number=$((1000 + GITHUB_RUN_NUMBER))
-          flutter build apk --release --build-number "$build_number"
+          flutter build apk --release --build-number "$build_number" 2>&1 | tee build.log
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk nutrinutri-android.apk
@@ -71,3 +81,25 @@ jobs:
         with:
           name: nutrinutri-android-apk
           path: nutrinutri-android.apk
+
+      # Full job logs need repo admin rights; annotations on the run page are
+      # visible to anyone, so put the end of the failing output there.
+      - name: Show the error on the run page
+        if: failure()
+        env:
+          ANALYZE_OUTCOME: ${{ steps.analyze.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          report() {
+            if [ "$1" != "failure" ] || [ ! -s "$2" ]; then
+              return 0
+            fi
+            message=$(tail -n 60 "$2" \
+              | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/%/%25/g' -e 's/\r/%0D/g' \
+              | awk 'BEGIN { ORS = "%0A" } { print }')
+            echo "::error title=$3::$message"
+          }
+          report "$ANALYZE_OUTCOME" analyze.log "flutter analyze failed"
+          report "$TEST_OUTCOME" test.log "flutter test failed"
+          report "$BUILD_OUTCOME" build.log "APK build failed"
