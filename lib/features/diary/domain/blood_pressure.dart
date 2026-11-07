@@ -14,18 +14,20 @@ const bpMaxSystolic = 300;
 const bpMinDiastolic = 30;
 const bpMaxDiastolic = 200;
 
+/// Low: below 90/60. Normal: below 130/85. High-normal: 130-139 / 85-89.
+/// High: 140/90 or above. Very high: 160/100 or above.
+/// Dangerous: 180/110 or above.
 enum BpCategory {
-  low('Low', 'Below 90/60'),
-  normal('Normal', 'Below 130/85'),
-  highNormal('High-normal', '130-139 / 85-89'),
-  high('High', '140/90 or above'),
-  veryHigh('Very high', '160/100 or above'),
-  dangerous('Dangerous', '180/110 or above - call a doctor');
+  low('Low'),
+  normal('Normal'),
+  highNormal('High-normal'),
+  high('High'),
+  veryHigh('Very high'),
+  dangerous('Dangerous');
 
-  const BpCategory(this.label, this.rangeLabel);
+  const BpCategory(this.label);
 
   final String label;
-  final String rangeLabel;
 
   /// True for readings at or above the 140/90 limit.
   bool get isHigh => index >= BpCategory.high.index;
@@ -200,18 +202,8 @@ class BpPeriod {
     return BpPeriod(start: start, end: end);
   }
 
-  /// The Monday-to-Sunday week that contains [day].
-  factory BpPeriod.weekOf(DateTime day) {
-    final start = DateTime(day.year, day.month, day.day - (day.weekday - 1));
-    final end = DateTime(start.year, start.month, start.day + 7);
-    return BpPeriod(start: start, end: end);
-  }
-
   final DateTime start;
   final DateTime end;
-
-  /// The last day inside the period.
-  DateTime get lastDay => DateTime(end.year, end.month, end.day - 1);
 
   /// The period of the same length directly before this one.
   BpPeriod get previous {
@@ -229,11 +221,4 @@ class BpPeriod {
   BpStats statsOf(Iterable<BpReading> readings) {
     return BpStats.from(readings.where((reading) => contains(reading.timestamp)));
   }
-
-  @override
-  bool operator ==(Object other) =>
-      other is BpPeriod && other.start == start && other.end == end;
-
-  @override
-  int get hashCode => Object.hash(start, end);
 }

@@ -367,7 +367,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final message = result == null
           ? 'BP export cancelled'
           : _exportMessage(
-              'Exported ${result.entryCount} BP $readingLabel with summary',
+              'Exported ${result.entryCount} BP $readingLabel',
               result,
             );
       ScaffoldMessenger.of(
@@ -787,11 +787,8 @@ class _BloodPressureSection extends StatelessWidget {
             side: BorderSide(color: colorScheme.primary),
           ),
           child: ListTile(
-            title: const Text('Export BP Report (CSV)'),
-            subtitle: const Text(
-              'Summary and weekly averages on top, then every reading '
-              'with date and time',
-            ),
+            title: const Text('Export BP Readings (CSV)'),
+            subtitle: const Text('Plain CSV: date, time, reading, arm, note'),
             leading: const Icon(Icons.monitor_heart),
             trailing: isExporting
                 ? const SizedBox.square(

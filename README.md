@@ -25,7 +25,7 @@ This is my fork of [NutriNutri](https://github.com/riki137/nutrinutri), an open-
 - **Better AI entries**: several photos per meal, the AI's reasoning for each estimate, follow-up corrections, and Run Again.
 - **AI review queue**: flag entries where the AI got it wrong, then export the prompt, images and AI chat as a ZIP to check them.
 - **Prompt changes**: Indian meals, portion uncertainty, and the device's region.
-- **Blood pressure tracking**: log BP readings with time and arm, see the last 7 days (average, highest, lowest, how many were high, morning vs evening) at the top of the home screen, and export a BP report CSV with weekly summaries.
+- **Blood pressure tracking**: log BP readings with time and arm, see the last 7 days (average, highest, lowest, how many were high) at the top of the home screen, and export every reading as a plain CSV (`date,time,reading,arm,note`).
 - **More tracking**: minerals, PUFA, vitamin A, nutrient ratios (potassium:sodium, calcium:phosphorus, zinc:copper), and temperature logging.
 - **Export and backup**: daily totals to Excel, CSV import and export, and ZIP backup and restore with an integrity check.
 

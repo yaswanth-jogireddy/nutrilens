@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nutrinutri/features/diary/domain/blood_pressure.dart';
-import 'package:nutrinutri/features/diary/domain/blood_pressure_report.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure_csv.dart';
 import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 
 BpReading reading(
@@ -126,7 +126,6 @@ void main() {
       final period = BpPeriod.daysEnding(DateTime(2026, 11, 3, 15, 30), 7);
       expect(period.start, DateTime(2026, 10, 28));
       expect(period.end, DateTime(2026, 11, 4));
-      expect(period.lastDay, DateTime(2026, 11, 3));
       expect(period.contains(DateTime(2026, 10, 28)), isTrue);
       expect(period.contains(DateTime(2026, 11, 3, 23, 59)), isTrue);
       expect(period.contains(DateTime(2026, 11, 4)), isFalse);
@@ -137,15 +136,6 @@ void main() {
       final previous = BpPeriod.daysEnding(DateTime(2026, 11, 7), 7).previous;
       expect(previous.start, DateTime(2026, 10, 25));
       expect(previous.end, DateTime(2026, 11, 1));
-    });
-
-    test('weekOf starts on Monday', () {
-      // 7 Nov 2026 is a Saturday.
-      final week = BpPeriod.weekOf(DateTime(2026, 11, 7, 20));
-      expect(week.start, DateTime(2026, 11, 2));
-      expect(week.end, DateTime(2026, 11, 9));
-      expect(BpPeriod.weekOf(DateTime(2026, 11, 2)), week);
-      expect(BpPeriod.weekOf(DateTime(2026, 11, 8, 23, 59)), week);
     });
   });
 
@@ -177,92 +167,30 @@ void main() {
     expect(food.bpReading, isNull);
   });
 
-  group('buildBloodPressureReportCsv', () {
-    final now = DateTime(2026, 11, 7, 20, 0);
-    final readings = [
-      reading(DateTime(2026, 10, 1, 9, 0), 118, 76, arm: 'left'),
-      reading(
-        DateTime(2026, 11, 7, 8, 10),
-        150,
-        95,
-        arm: 'left',
-        note: 'before tablet, felt "dizzy"',
-      ),
-      reading(DateTime(2026, 11, 6, 19, 30), 130, 84, arm: 'right'),
-      reading(DateTime(2026, 11, 3, 7, 45), 124, 78, arm: 'left'),
-      reading(DateTime(2026, 10, 30, 8, 0), 160, 100),
-    ];
-    final lines = buildBloodPressureReportCsv(readings, now: now).split('\n');
-
-    test('starts with the summary block', () {
-      expect(lines.first, 'Blood Pressure Report');
-      expect(lines, contains('Exported on,2026-11-07 8:00 PM'));
-      expect(lines, contains('Total readings,5'));
-      expect(lines, contains('First reading,2026-10-01 9:00 AM'));
-      expect(lines, contains('Latest reading,2026-11-07 8:10 AM'));
-      expect(lines, contains('High means,140/90 or above'));
-      expect(
-        lines.indexOf('SUMMARY'),
-        lessThan(lines.indexOf('WEEKLY SUMMARY (Monday to Sunday)')),
-      );
-      expect(
-        lines.indexOf('WEEKLY SUMMARY (Monday to Sunday)'),
-        lessThan(lines.indexOf('ALL READINGS (newest first)')),
-      );
-    });
-
-    test('summarizes the last 7 and previous 7 days', () {
-      expect(
-        lines,
-        contains(
-          'Last 7 days,2026-11-01,2026-11-07,3,135/86,High-normal,'
-          '150/95,2026-11-07 8:10 AM,124/78,2026-11-03 7:45 AM,1 of 3',
+  group('buildBloodPressureCsv', () {
+    test('is a header row plus one row per reading, oldest first', () {
+      final csv = buildBloodPressureCsv([
+        reading(DateTime(2026, 11, 7, 17, 6), 150, 98, arm: 'left'),
+        reading(
+          DateTime(2026, 11, 6, 8, 5),
+          136,
+          84,
+          arm: 'Right',
+          note: 'before tablet, felt "dizzy"',
         ),
-      );
-      expect(
-        lines,
-        contains(
-          'Previous 7 days,2026-10-25,2026-10-31,1,160/100,Very high,'
-          '160/100,2026-10-30 8:00 AM,160/100,2026-10-30 8:00 AM,1 of 1',
-        ),
-      );
-      expect(
-        lines.firstWhere((line) => line.startsWith('Last 30 days,')),
-        startsWith('Last 30 days,2026-10-09,2026-11-07,4,'),
-      );
-      expect(
-        lines.firstWhere((line) => line.startsWith('All readings,')),
-        startsWith('All readings,2026-10-01,2026-11-07,5,'),
-      );
+        reading(DateTime(2026, 10, 30, 7, 50), 160, 100),
+      ]);
+      expect(csv.split('\n'), [
+        'date,time,reading,arm,note',
+        '2026-10-30,07:50,160/100,,',
+        '2026-11-06,08:05,136/84,right,"before tablet, felt ""dizzy"""',
+        '2026-11-07,17:06,150/98,left,',
+        '',
+      ]);
     });
 
-    test('lists weeks newest first', () {
-      final weekLines = lines
-          .where((line) => line.startsWith('Week of '))
-          .toList();
-      expect(weekLines, hasLength(3));
-      expect(weekLines[0], startsWith('Week of 2026-11-02,2026-11-02,2026-11-08,3,'));
-      expect(weekLines[1], startsWith('Week of 2026-10-26,2026-10-26,2026-11-01,1,'));
-      expect(weekLines[2], startsWith('Week of 2026-09-28,2026-09-28,2026-10-04,1,'));
-    });
-
-    test('lists every reading with date, time, and escaped notes', () {
-      final header = lines.indexOf('Date,Time,Reading,Arm,Note');
-      expect(header, greaterThan(0));
-      expect(
-        lines[header + 1],
-        '2026-11-07,8:10 AM,150/95,Left arm,"before tablet, felt ""dizzy"""',
-      );
-      expect(lines[header + 2], '2026-11-06,7:30 PM,130/84,Right arm,');
-      expect(lines[header + 4], '2026-10-30,8:00 AM,160/100,,');
-      expect(lines[header + 5], '2026-10-01,9:00 AM,118/76,Left arm,');
-    });
-
-    test('works with no readings', () {
-      final empty = buildBloodPressureReportCsv(const [], now: now);
-      expect(empty, contains('Total readings,0'));
-      expect(empty, contains('Last 7 days,2026-11-01,2026-11-07,0,'));
-      expect(empty, contains('No readings yet'));
+    test('is just the header when there are no readings', () {
+      expect(buildBloodPressureCsv(const []), 'date,time,reading,arm,note\n');
     });
   });
 }

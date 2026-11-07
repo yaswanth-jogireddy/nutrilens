@@ -14,7 +14,7 @@ import 'package:nutrinutri/core/services/device_id_service.dart';
 import 'package:nutrinutri/core/services/settings_service.dart';
 import 'package:nutrinutri/core/services/sync_service.dart';
 import 'package:nutrinutri/features/diary/domain/blood_pressure.dart';
-import 'package:nutrinutri/features/diary/domain/blood_pressure_report.dart';
+import 'package:nutrinutri/features/diary/domain/blood_pressure_csv.dart';
 import 'package:nutrinutri/features/diary/domain/diary_entry.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -180,13 +180,13 @@ class DataPortabilityService {
     }
 
     final now = DateTime.now();
-    // The byte order mark lets Excel read notes typed in any language.
-    final csv = '\uFEFF${buildBloodPressureReportCsv(readings, now: now)}';
+    // Plain UTF-8 without a byte order mark, so code can parse it directly.
+    final csv = buildBloodPressureCsv(readings);
     final csvBytes = Uint8List.fromList(utf8.encode(csv));
-    final fileName = 'bp-report-${_datePart(now)}-${_timePart(now)}.csv';
+    final fileName = 'bp-readings-${_datePart(now)}-${_timePart(now)}.csv';
 
     final savedPath = await _saveFileBytes(
-      dialogTitle: 'Export blood pressure report',
+      dialogTitle: 'Export blood pressure readings',
       fileName: fileName,
       allowedExtensions: const ['csv'],
       bytes: csvBytes,
